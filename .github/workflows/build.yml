@@ -29,7 +29,7 @@ jobs:
     - name: Configure CMake
       run: |
         $env:BOOST_ROOT = "${env:ProgramData}\chocolatey\lib\boost-msvc-14.3\build"
-        cmake -S azerothcore-wotlk -B build -G "Ninja" `
+        cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=MinSizeRel `
           -DBOOST_ROOT="$env:BOOST_ROOT" `
@@ -41,11 +41,11 @@ jobs:
     - name: Copy extra files
       run: |
         mkdir build\config
-        copy azerothcore-wotlk\configs\* build\config\
+        copy configs\* build\config\
         mkdir build\lua_scripts
-        xcopy /E /I /Y azerothcore-wotlk\lua_scripts build\lua_scripts
+        xcopy /E /I /Y lua_scripts build\lua_scripts
         mkdir build\sql
-        xcopy /E /I /Y azerothcore-wotlk\data\sql build\sql
+        xcopy /E /I /Y data\sql build\sql
 
     - name: Zip full build output
       run: |
