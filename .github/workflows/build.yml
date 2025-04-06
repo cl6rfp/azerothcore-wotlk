@@ -15,7 +15,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        choco install cmake --version=3.27.7 -y
+        choco install cmake --version=3.16.3 -y
         choco install git -y
         choco install ninja -y
         choco install python -y
@@ -28,7 +28,10 @@ jobs:
 
     - name: Configure CMake
       run: |
-        $env:BOOST_ROOT = "${env:ProgramData}\chocolatey\lib\boost-msvc-14.3\build"
+        # Define Boost directory
+        $env:BOOST_ROOT = "C:/ProgramData/chocolatey/lib/boost-msvc-14.3/build"
+        
+        # Run CMake configuration
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=MinSizeRel `
