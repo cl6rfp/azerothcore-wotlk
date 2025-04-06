@@ -1,0 +1,43 @@
+name: Build AzerothCore for Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout AzerothCore
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Install dependencies
+      run: |
+        choco install cmake -y
+        choco install git -y
+        choco install ninja -y
+        choco install python -y
+        choco install mariadb -y
+        choco install vcredist140 -y
+
+    - name: Create Build Directory
+      run: mkdir build
+
+    - name: Configure CMake
+      run: cmake -S . -B build -G "Ninja" -DWITH_ELUNA=ON -DCMAKE_BUILD_TYPE=MinSizeRel
+
+    - name: Build AzerothCore
+      run: cmake --build build --target all
+
+    - name: Zip build output
+      run: |
+        cd build
+        powershell Compress-Archive -Path bin\* -DestinationPath azerothcore_build.zip
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: azerothcore-windows
+        path: build/azerothcore_build.zip
