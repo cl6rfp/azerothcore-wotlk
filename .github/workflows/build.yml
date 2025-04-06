@@ -8,36 +8,52 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout AzerothCore
+    - name: Checkout this repo
       uses: actions/checkout@v3
       with:
         submodules: true
 
     - name: Install dependencies
       run: |
-        choco install cmake -y
+        choco install cmake --version=3.27.7 -y
         choco install git -y
         choco install ninja -y
         choco install python -y
         choco install mariadb -y
         choco install vcredist140 -y
+        choco install boost-msvc-14.3 -y
 
     - name: Create Build Directory
       run: mkdir build
 
     - name: Configure CMake
-      run: cmake -S . -B build -G "Ninja" -DWITH_ELUNA=ON -DCMAKE_BUILD_TYPE=MinSizeRel
+      run: |
+        $env:BOOST_ROOT = "${env:ProgramData}\chocolatey\lib\boost-msvc-14.3\build"
+        cmake -S azerothcore-wotlk -B build -G "Ninja" `
+          -DWITH_ELUNA=ON `
+          -DCMAKE_BUILD_TYPE=MinSizeRel `
+          -DBOOST_ROOT="$env:BOOST_ROOT" `
+          -DBoost_NO_SYSTEM_PATHS=ON
 
     - name: Build AzerothCore
       run: cmake --build build --target all
 
-    - name: Zip build output
+    - name: Copy extra files
+      run: |
+        mkdir build\config
+        copy azerothcore-wotlk\configs\* build\config\
+        mkdir build\lua_scripts
+        xcopy /E /I /Y azerothcore-wotlk\lua_scripts build\lua_scripts
+        mkdir build\sql
+        xcopy /E /I /Y azerothcore-wotlk\data\sql build\sql
+
+    - name: Zip full build output
       run: |
         cd build
-        powershell Compress-Archive -Path bin\* -DestinationPath azerothcore_build.zip
+        powershell Compress-Archive -Path * -DestinationPath azerothcore_full.zip
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: azerothcore-windows
-        path: build/azerothcore_build.zip
+        name: azerothcore-windows-full
+        path: build/azerothcore_full.zip
