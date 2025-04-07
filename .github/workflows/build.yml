@@ -21,22 +21,31 @@ jobs:
         choco install python -y
         choco install mariadb -y
         choco install vcredist140 -y
+        choco install 7zip -y
 
-    - name: Download and extract Boost 1.87.0
+    - name: Download and build Boost 1.87.0
       run: |
-        # Descargar Boost 1.87.0 desde GitHub
-        Invoke-WebRequest -Uri "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0.7z" -OutFile "boost-1.87.0.7z"
-        7z x boost-1.87.0.7z -oC:\boost
-        rm boost-1.87.0.7z
+        # Descargar fuente de Boost 1.87.0 (formato .tar.gz)
+        Invoke-WebRequest -Uri "https://github.com/boostorg/boost/archive/refs/tags/boost-1.87.0.tar.gz" -OutFile "boost-1.87.0.tar.gz"
+        
+        # Extraer archivo (2 pasos: .tar.gz -> .tar -> carpeta)
+        7z x boost-1.87.0.tar.gz -oC:\boost
+        7z x C:\boost\boost-1.87.0.tar -oC:\boost
+        Rename-Item -Path "C:\boost\boost-boost-1.87.0" -NewName "C:\boost\boost-1.87.0"
+        Remove-Item -Path "C:\boost\boost-1.87.0.tar"
+
+        # Compilar solo los módulos necesarios
+        cd C:\boost\boost-1.87.0
+        .\bootstrap.bat
+        .\b2 --prefix=C:\boost\boost-1.87.0\stage --with-filesystem --with-system install
 
     - name: Create Build Directory
       run: mkdir build
 
     - name: Configure CMake
       run: |
-        # Definir rutas de Boost (ajustadas para 1.87.0)
         $env:BOOST_ROOT = "C:\boost\boost-1.87.0"
-        $env:BOOST_LIBRARYDIR = "C:\boost\boost-1.87.0\stage\lib"  # Si se compila Boost, sino omitir
+        $env:BOOST_LIBRARYDIR = "C:\boost\boost-1.87.0\stage\lib"
         
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
