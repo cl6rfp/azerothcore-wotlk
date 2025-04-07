@@ -13,53 +13,30 @@ jobs:
       with:
         submodules: true
 
-    - name: Install dependencies
+    - name: Install basic dependencies
       run: |
         choco install cmake git ninja python mariadb vcredist140 -y
-        choco install 7zip -y --force
 
-    - name: Download and setup Boost
+    - name: Setup Boost with vcpkg (Instalación nativa)
       run: |
-        # Descargar Boost precompilado oficial (versión 1.83.0)
-        $url = "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z"
-        $output = "boost.7z"
+        # 1. Instalar vcpkg
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
         
-        # Descargar con verificación
-        (New-Object System.Net.WebClient).DownloadFile($url, $output)
+        # 2. Instalar Boost específico para VS2022 (msvc-14.3)
+        .\vcpkg\vcpkg install boost:x64-windows@1.83.0
         
-        # Verificar tamaño del archivo (debe ser >50MB)
-        if ((Get-Item $output).Length -lt 50MB) {
-            throw "Archivo Boost descargado es demasiado pequeño (posible descarga corrupta)"
-        }
-        
-        # Extraer a ubicación específica
-        7z x $output -oC:\boost -y
-        if (-not (Test-Path "C:\boost\boost_1_83_0")) {
-            throw "Extracción de Boost falló"
-        }
-        
-        # Configurar estructura de carpetas esperada
-        Move-Item -Path "C:\boost\boost_1_83_0\lib64-msvc-14.2" -Destination "C:\boost\lib"
-        Move-Item -Path "C:\boost\boost_1_83_0\include\boost-1_83" -Destination "C:\boost\include"
-        Remove-Item -Recurse -Force "C:\boost\boost_1_83_0"
+        # 3. Configurar integración con CMake
+        $env:CMAKE_TOOLCHAIN_FILE = "$pwd\vcpkg\scripts\buildsystems\vcpkg.cmake"
+        echo "VCPKG_ROOT=$pwd\vcpkg" >> $env:GITHUB_ENV
 
     - name: Configure CMake
       run: |
-        # Configurar variables de entorno necesarias
-        $env:BOOST_ROOT = "C:\boost"
-        $env:BOOST_INCLUDEDIR = "C:\boost\include"
-        $env:BOOST_LIBRARYDIR = "C:\boost\lib"
-        
-        # Configuración CMake con políticas actualizadas
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
-          -DBOOST_ROOT="$env:BOOST_ROOT" `
-          -DBoost_INCLUDE_DIR="$env:BOOST_INCLUDEDIR" `
-          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
-          -DBoost_NO_SYSTEM_PATHS=ON `
-          -DBoost_USE_STATIC_LIBS=ON `
-          --no-warn-unused-cli
+          -DCMAKE_TOOLCHAIN_FILE="$env:CMAKE_TOOLCHAIN_FILE" `
+          -DVCPKG_TARGET_TRIPLET=x64-windows
 
     - name: Build AzerothCore
       run: cmake --build build --parallel 4
