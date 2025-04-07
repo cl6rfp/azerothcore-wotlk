@@ -22,21 +22,21 @@ jobs:
         choco install mariadb -y
         choco install vcredist140 -y
 
-    - name: Download and extract Boost 1.83.0
+    - name: Download and extract Boost 1.87.0
       run: |
-        # Descargar Boost desde el sitio oficial
-        Invoke-WebRequest -Uri "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.7z" -OutFile "boost_1_83_0.7z"
-        7z x boost_1_83_0.7z -oC:\boost
-        rm boost_1_83_0.7z
+        # Descargar Boost 1.87.0 desde GitHub
+        Invoke-WebRequest -Uri "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0.7z" -OutFile "boost-1.87.0.7z"
+        7z x boost-1.87.0.7z -oC:\boost
+        rm boost-1.87.0.7z
 
     - name: Create Build Directory
       run: mkdir build
 
     - name: Configure CMake
       run: |
-        # Definir rutas de Boost
-        $env:BOOST_ROOT = "C:\boost\boost_1_83_0"
-        $env:BOOST_LIBRARYDIR = "C:\boost\boost_1_83_0\stage\lib"  # Si se compila Boost, sino omitir
+        # Definir rutas de Boost (ajustadas para 1.87.0)
+        $env:BOOST_ROOT = "C:\boost\boost-1.87.0"
+        $env:BOOST_LIBRARYDIR = "C:\boost\boost-1.87.0\stage\lib"  # Si se compila Boost, sino omitir
         
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
