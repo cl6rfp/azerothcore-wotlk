@@ -1,46 +1,64 @@
-name: Build AzerothCore with Boost 1.78
+name: Build AzerothCore for Windows
 
 on:
-  push:
-    branches:
-      - main  # o la rama que estés usando
-  pull_request:
-    branches:
-      - main  # o la rama que estés usando
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # O windows-latest si estás en Windows
+    runs-on: windows-latest
 
     steps:
-      # Paso para hacer checkout del código del repositorio
-      - name: Checkout the repository
-        uses: actions/checkout@v2
+    - name: Checkout this repo
+      uses: actions/checkout@v3
+      with:
+        submodules: true
 
-      # Paso para clonar el repositorio de Boost y preparar la versión 1.78
-      - name: Clonar Boost y preparar
-        run: |
-          # Clonamos Boost desde su repositorio oficial
-          git clone --branch boost-1.78.0 https://github.com/boostorg/boost.git
+    - name: Install dependencies
+      run: |
+        choco install cmake -y --installargs 'ADD_CMAKE_TO_PATH=System'
+        choco install git -y
+        choco install ninja -y
+        choco install python -y
+        choco install mariadb -y
+        choco install vcredist140 -y
+        choco install boost-msvc-14.3 -y --version=1.83.0
 
-          # Entramos a la carpeta de Boost
-          cd boost
+    - name: Create Build Directory
+      run: mkdir build
 
-          # Ejecutamos el bootstrap para preparar Boost
-          ./bootstrap.sh
+    - name: Configure CMake
+      run: |
+        # Definir las rutas de Boost
+        $env:BOOST_ROOT = "C:\local\boost_1_83_0"
+        $env:BOOST_LIBRARYDIR = "C:\local\boost_1_83_0\lib64-msvc-14.3"
+        
+        # Configurar CMake
+        cmake -S . -B build -G "Ninja" `
+          -DWITH_ELUNA=ON `
+          -DCMAKE_BUILD_TYPE=MinSizeRel `
+          -DBOOST_ROOT="$env:BOOST_ROOT" `
+          -DBOOST_LIBRARYDIR="$env:BOOST_LIBRARYDIR" `
+          -DBoost_NO_SYSTEM_PATHS=ON
 
-          # Esto instalará Boost en el directorio de Boost
-          ./b2 install --prefix=${{ github.workspace }}/boost_1_78_0
+    - name: Build AzerothCore
+      run: cmake --build build --target all
 
-          # Establecemos la variable de entorno BOOST_ROOT para apuntar a la instalación
-          echo "BOOST_ROOT=${{ github.workspace }}/boost_1_78_0" >> $GITHUB_ENV
+    - name: Copy extra files
+      run: |
+        mkdir build\config
+        copy configs\* build\config\
+        mkdir build\lua_scripts
+        xcopy /E /I /Y lua_scripts build\lua_scripts
+        mkdir build\sql
+        xcopy /E /I /Y data\sql build\sql
 
-      # Paso para ejecutar CMake usando Boost
-      - name: Configurar CMake
-        run: |
-          cmake -S . -B build -DWITH_ELUNA=ON -DCMAKE_BUILD_TYPE=MinSizeRel -DBOOST_ROOT=${{ env.BOOST_ROOT }}
-          
-      # Paso para compilar el código
-      - name: Build
-        run: |
-          cmake --build build --config Release
+    - name: Zip full build output
+      run: |
+        cd build
+        powershell Compress-Archive -Path * -DestinationPath azerothcore_full.zip
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: azerothcore-windows-full
+        path: build/azerothcore_full.zip
