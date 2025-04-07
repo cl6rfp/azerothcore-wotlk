@@ -1,4 +1,4 @@
-name: Build AzerothCore para Windows
+name: Build AzerothCore for Windows
 
 on:
   workflow_dispatch:
