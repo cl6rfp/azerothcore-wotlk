@@ -8,12 +8,12 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Comprobando repositorio
+    - name: Checkout repository
       uses: actions/checkout@v3
       with:
         submodules: true
 
-    - name: Instalando dependencias
+    - name: Install dependencias
       run: |
         choco install cmake git ninja python mariadb vcredist140 -y
         choco install boost-msvc-14.3 -y --force
@@ -41,5 +41,5 @@ jobs:
           -DBOOST_ALL_DYN_LINK=OFF `
           -DBoost_ARCHITECTURE="-x64"
 
-    - name: Constuyendo AzerothCore
+    - name: Build AzerothCore
       run: cmake --build build --parallel 4
