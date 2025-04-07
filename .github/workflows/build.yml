@@ -15,20 +15,46 @@ jobs:
 
     - name: Install dependencies
       run: |
-        # 1. Instalar dependencias básicas
+        # Instalar dependencias básicas (sin Boost)
         choco install cmake git ninja python mariadb vcredist140 -y
-        
-        # 2. Descargar Boost precompilado CON soporte para CMake
-        $url = "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z"
-        curl -L $url -o boost.7z --progress-bar
-        7z x boost.7z -oC:\boost -y
-        rm boost.7z
 
-        # 3. Configurar variables de entorno
-        $boostDir = "C:\boost\boost_1_83_0"
+    - name: Download and install Boost (from AzerothCore official link)
+      run: |
+        # Descargar instalador de Boost (versión específica de AzerothCore)
+        $url = "https://sourceforge.net/projects/boost/files/boost-binaries/1.81.0/boost_1_81_0-msvc-14.3-64.exe/download"
+        $installer = "boost_installer.exe"
+        
+        # Descarga con reintentos
+        $retryCount = 0
+        do {
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $installer
+                break
+            } catch {
+                $retryCount++
+                if ($retryCount -ge 3) {
+                    throw "Failed to download Boost after 3 attempts"
+                }
+                Start-Sleep -Seconds 5
+            }
+        } while ($true)
+
+        # Instalar silenciosamente en C:\boost
+        Start-Process -Wait -FilePath ".\$installer" -ArgumentList "/VERYSILENT", "/DIR=C:\boost", "/NORESTART", "/SUPPRESSMSGBOXES"
+        Remove-Item $installer
+
+    - name: Configure Boost paths
+      run: |
+        # Configurar rutas EXACTAS como las espera AzerothCore
+        $boostDir = "C:\boost"
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
-        echo "Boost_DIR=$boostDir" >> $env:GITHUB_ENV
-        echo "CMAKE_PREFIX_PATH=$boostDir" >> $env:GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
+        echo "BOOST_INCLUDEDIR=$boostDir\include\boost-1_81" >> $env:GITHUB_ENV
+
+        # Verificar instalación
+        if (-not (Test-Path "$boostDir\lib64-msvc-14.3\boost_system-vc143-mt-x64-1_81.lib")) {
+            throw "Boost libraries not found in expected location!"
+        }
 
     - name: Configure CMake
       run: |
@@ -36,8 +62,8 @@ jobs:
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
           -DBOOST_ROOT="$env:BOOST_ROOT" `
-          -DBoost_DIR="$env:Boost_DIR" `
-          -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH" `
+          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
+          -DBoost_INCLUDE_DIR="$env:BOOST_INCLUDEDIR" `
           -DBoost_NO_SYSTEM_PATHS=ON `
           -DBoost_USE_STATIC_LIBS=ON
 
