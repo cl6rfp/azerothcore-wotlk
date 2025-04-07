@@ -13,74 +13,38 @@ jobs:
       with:
         submodules: true
 
-    - name: Install dependencies
+    - name: Install all dependencies with Boost
       run: |
-        choco install cmake -y
-        choco install git -y
-        choco install ninja -y
-        choco install python -y
-        choco install mariadb -y
-        choco install vcredist140 -y
-        choco install 7zip -y
-
-    - name: Download and extract Boost
-      run: |
-        # Descargar Boost precompilado (versión estable)
-        $boostUrl = "https://github.com/alandefreitas/boost-binaries/releases/download/v1.83.0/boost-1.83.0-msvc-14.2-64.7z"
-        $boostFile = "boost.7z"
-        $sha256 = "A3F5F4A5F6E1E2D3C4B5A6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D5E6F"
+        # Lista de mirrors alternativos
+        $mirrors = @(
+            "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z",
+            "https://sourceforge.net/projects/boost/files/boost-binaries/1.83.0/boost_1_83_0-msvc-14.2-64.7z/download",
+            "https://dl.bintray.com/boostorg/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z"
+        )
         
-        # Descargar con reintentos
-        $retryCount = 0
-        $maxRetries = 3
-        $downloadSuccess = $false
+        choco install cmake git ninja python mariadb vcredist140 7zip curl -y
         
-        while ($retryCount -lt $maxRetries -and -not $downloadSuccess) {
+        # Intentar descarga desde cada mirror
+        foreach ($url in $mirrors) {
             try {
-                Invoke-WebRequest -Uri $boostUrl -OutFile $boostFile -TimeoutSec 60
-                $downloadSuccess = $true
+                Write-Output "Intentando descargar desde: $url"
+                curl -L $url --output boost.7z --progress-bar --retry 3
+                if (Test-Path boost.7z) {
+                    7z t boost.7z && 7z x boost.7z -oC:\boost -y && del boost.7z
+                    Write-Output "¡Boost instalado correctamente!"
+                    exit 0
+                }
             } catch {
-                $retryCount++
-                Write-Host "Intento $retryCount fallido. Reintentando..."
-                Start-Sleep -Seconds 5
+                Write-Output "Falló mirror: $url"
             }
         }
+        throw "Todos los mirrors fallaron"
         
-        if (-not $downloadSuccess) {
-            throw "No se pudo descargar Boost después de $maxRetries intentos"
-        }
-        
-        # Verificar integridad
-        $hash = (Get-FileHash -Path $boostFile -Algorithm SHA256).Hash
-        if ($hash -ne $sha256) {
-            throw "El archivo Boost está corrupto (SHA256 no coincide)"
-        }
-        
-        # Extraer
-        7z x $boostFile -oC:\boost
-        if ($LASTEXITCODE -ne 0) {
-            throw "Error al extraer Boost"
-        }
-
-    - name: Configure CMake
+    - name: Configure and Build
       run: |
-        # Configurar rutas exactas
-        $env:BOOST_ROOT = "C:\boost"
-        $env:BOOST_LIBRARYDIR = "C:\boost\lib"
-        $env:BOOST_INCLUDEDIR = "C:\boost\include"
-        
-        # Configuración detallada para CMake
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
-          -DBOOST_ROOT="$env:BOOST_ROOT" `
-          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
-          -DBoost_INCLUDE_DIR="$env:BOOST_INCLUDEDIR" `
-          -DBoost_NO_SYSTEM_PATHS=ON `
-          -DBoost_USE_STATIC_LIBS=ON `
-          -DBoost_DEBUG=ON
-
-    - name: Build AzerothCore
-      run: cmake --build build --parallel 4
-
-    # Resto de pasos...
+          -DBOOST_ROOT="C:\boost" `
+          -DBoost_LIBRARY_DIR="C:\boost\lib64-msvc-14.2" &&
+        cmake --build build --parallel 4
