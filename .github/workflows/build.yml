@@ -41,5 +41,5 @@ jobs:
           -DBOOST_ALL_DYN_LINK=OFF `
           -DBoost_ARCHITECTURE="-x64"
 
-    - name: Build AzerothCore
+    - name: Constuyendo AzerothCore
       run: cmake --build build --parallel 4
