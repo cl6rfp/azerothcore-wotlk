@@ -21,35 +21,19 @@ jobs:
         choco install python -y
         choco install mariadb -y
         choco install vcredist140 -y
-        choco install 7zip -y
 
-    - name: Download and build Boost 1.87.0
+    - name: Download Precompiled Boost 1.87.0
       run: |
-        # Descargar fuente de Boost
-        Invoke-WebRequest -Uri "https://github.com/boostorg/boost/archive/refs/tags/boost-1.87.0.tar.gz" -OutFile "boost-1.87.0.tar.gz"
+        # Descargar Boost precompilado (MSVC 14.2, 64-bit)
+        Invoke-WebRequest -Uri "https://sourceforge.net/projects/boost/files/boost-binaries/1.87.0/boost_1_87_0-msvc-14.2-64.exe/download" -OutFile "boost_installer.exe"
         
-        # Extraer archivo
-        7z x boost-1.87.0.tar.gz -oC:\boost
-        7z x C:\boost\boost-1.87.0.tar -oC:\boost
-        Rename-Item -Path "C:\boost\boost-boost-1.87.0" -NewName "C:\boost\boost-1.87.0"
-        Remove-Item -Path "C:\boost\boost-1.87.0.tar" -Force
-
-        # Compilar Boost
-        cd C:\boost\boost-1.87.0
-        .\bootstrap.bat
-        if (!(Test-Path ".\b2.exe")) {
-            Write-Error "b2.exe no se generó correctamente"
-            Exit 1
-        }
-        .\b2.exe --prefix=C:\boost\boost-1.87.0\stage --with-filesystem --with-system install
-
-    - name: Create Build Directory
-      run: mkdir build
+        # Instalar silenciosamente en C:\boost
+        Start-Process -Wait -FilePath ".\boost_installer.exe" -ArgumentList "/VERYSILENT", "/DIR=C:\boost"
 
     - name: Configure CMake
       run: |
-        $env:BOOST_ROOT = "C:\boost\boost-1.87.0"
-        $env:BOOST_LIBRARYDIR = "C:\boost\boost-1.87.0\stage\lib"
+        $env:BOOST_ROOT = "C:\boost"
+        $env:BOOST_LIBRARYDIR = "C:\boost\lib64-msvc-14.2"
         
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
