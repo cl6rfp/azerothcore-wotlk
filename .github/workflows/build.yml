@@ -21,5 +21,5 @@ jobs:
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
-          -DBOOST_ROOT="C:\local\boost_1_83_0" &&
+          -DBOOST_ROOT="C:\local\boost_1_87_0" &&
         cmake --build build --parallel 4
