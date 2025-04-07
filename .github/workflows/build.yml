@@ -8,7 +8,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout this repo
+    - name: Checkout repo
       uses: actions/checkout@v3
       with:
         submodules: true
@@ -22,44 +22,42 @@ jobs:
         choco install mariadb -y
         choco install vcredist140 -y
 
-    - name: Download Precompiled Boost 1.87.0
+    - name: Download Boost 1.83.0 (Versión más estable)
       run: |
-        # Descargar Boost precompilado (MSVC 14.2, 64-bit)
-        Invoke-WebRequest -Uri "https://sourceforge.net/projects/boost/files/boost-binaries/1.87.0/boost_1_87_0-msvc-14.2-64.exe/download" -OutFile "boost_installer.exe"
-        
-        # Instalar silenciosamente en C:\boost
-        Start-Process -Wait -FilePath ".\boost_installer.exe" -ArgumentList "/VERYSILENT", "/DIR=C:\boost"
+        Invoke-WebRequest -Uri "https://sourceforge.net/projects/boost/files/boost-binaries/1.83.0/boost_1_83_0-msvc-14.2-64.exe/download" -OutFile "boost_installer.exe"
+        Start-Process -Wait -FilePath ".\boost_installer.exe" -ArgumentList "/VERYSILENT", "/DIR=C:\boost", "/NOICONS"
 
-    - name: Configure CMake
+    - name: Configure CMake (Compatibilidad garantizada)
       run: |
+        # Variables de entorno críticas
         $env:BOOST_ROOT = "C:\boost"
         $env:BOOST_LIBRARYDIR = "C:\boost\lib64-msvc-14.2"
+        $env:BOOST_INCLUDEDIR = "C:\boost\include\boost-1_83"
         
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
-          -DCMAKE_BUILD_TYPE=MinSizeRel `
+          -DCMAKE_BUILD_TYPE=Release `
           -DBOOST_ROOT="$env:BOOST_ROOT" `
-          -DBoost_NO_SYSTEM_PATHS=ON
+          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
+          -DBoost_INCLUDE_DIR="$env:BOOST_INCLUDEDIR" `
+          -DBoost_NO_SYSTEM_PATHS=ON `
+          -DBoost_USE_STATIC_LIBS=ON
 
     - name: Build AzerothCore
-      run: cmake --build build --target all
+      run: cmake --build build --config Release --parallel 4
 
-    - name: Copy extra files
+    # Pasos adicionales (copiar archivos, comprimir, etc.)
+    - name: Package artifacts
       run: |
         mkdir build\config
         copy configs\* build\config\
-        mkdir build\lua_scripts
-        xcopy /E /I /Y lua_scripts build\lua_scripts
-        mkdir build\sql
-        xcopy /E /I /Y data\sql build\sql
-
-    - name: Zip full build output
-      run: |
+        mkdir build\modules
+        xcopy /E /I /Y modules build\modules
         cd build
-        powershell Compress-Archive -Path * -DestinationPath azerothcore_full.zip
-
+        7z a azerothcore.zip *
+    
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: azerothcore-windows-full
-        path: build/azerothcore_full.zip
+        name: azerothcore-package
+        path: build\azerothcore.zip
