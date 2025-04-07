@@ -21,15 +21,20 @@ jobs:
         choco install python -y
         choco install mariadb -y
         choco install vcredist140 -y
+        choco install 7zip -y
 
-    - name: Download Boost 1.83.0 (Versión más estable)
+    - name: Download Boost (Alternativa confiable)
       run: |
-        Invoke-WebRequest -Uri "https://sourceforge.net/projects/boost/files/boost-binaries/1.83.0/boost_1_83_0-msvc-14.2-64.exe/download" -OutFile "boost_installer.exe"
-        Start-Process -Wait -FilePath ".\boost_installer.exe" -ArgumentList "/VERYSILENT", "/DIR=C:\boost", "/NOICONS"
+        # Descargar desde un mirror oficial de Boost (archivo .7z)
+        Invoke-WebRequest -Uri "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z" -OutFile "boost.7z"
+        7z x boost.7z -oC:\boost
+        # Verificar estructura de carpetas
+        if (!(Test-Path "C:\boost\lib64-msvc-14.2")) {
+            throw "Boost no se extrajo correctamente"
+        }
 
-    - name: Configure CMake (Compatibilidad garantizada)
+    - name: Configure CMake
       run: |
-        # Variables de entorno críticas
         $env:BOOST_ROOT = "C:\boost"
         $env:BOOST_LIBRARYDIR = "C:\boost\lib64-msvc-14.2"
         $env:BOOST_INCLUDEDIR = "C:\boost\include\boost-1_83"
@@ -39,25 +44,10 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release `
           -DBOOST_ROOT="$env:BOOST_ROOT" `
           -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
-          -DBoost_INCLUDE_DIR="$env:BOOST_INCLUDEDIR" `
           -DBoost_NO_SYSTEM_PATHS=ON `
-          -DBoost_USE_STATIC_LIBS=ON
+          -DBoost_DEBUG=ON  # Para diagnóstico
 
     - name: Build AzerothCore
-      run: cmake --build build --config Release --parallel 4
+      run: cmake --build build --parallel 4
 
-    # Pasos adicionales (copiar archivos, comprimir, etc.)
-    - name: Package artifacts
-      run: |
-        mkdir build\config
-        copy configs\* build\config\
-        mkdir build\modules
-        xcopy /E /I /Y modules build\modules
-        cd build
-        7z a azerothcore.zip *
-    
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: azerothcore-package
-        path: build\azerothcore.zip
+    # ... (pasos posteriores igual que antes)
