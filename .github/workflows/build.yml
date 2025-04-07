@@ -15,9 +15,7 @@ jobs:
 
     - name: Install dependencias
       run: |
-        choco install cmake git ninja python mariadb vcredist140 -y
-        choco install boost-msvc-14.3 -y --force
-        
+        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y
         # Detectar ruta de Boost instalada por Chocolatey
         $boostDir = Get-ChildItem "C:\local\boost_*" | Select-Object -First 1 -ExpandProperty FullName
         if (-not $boostDir) { throw "No se encontró la instalación de Boost" }
