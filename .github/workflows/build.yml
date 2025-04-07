@@ -13,38 +13,53 @@ jobs:
       with:
         submodules: true
 
-    - name: Install all dependencies with Boost
+    - name: Install dependencies
       run: |
-        # Lista de mirrors alternativos
-        $mirrors = @(
-            "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z",
-            "https://sourceforge.net/projects/boost/files/boost-binaries/1.83.0/boost_1_83_0-msvc-14.2-64.7z/download",
-            "https://dl.bintray.com/boostorg/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z"
-        )
+        choco install cmake git ninja python mariadb vcredist140 -y
+        choco install 7zip -y --force
+
+    - name: Download and setup Boost
+      run: |
+        # Descargar Boost precompilado oficial (versión 1.83.0)
+        $url = "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z"
+        $output = "boost.7z"
         
-        choco install cmake git ninja python mariadb vcredist140 7zip curl -y
+        # Descargar con verificación
+        (New-Object System.Net.WebClient).DownloadFile($url, $output)
         
-        # Intentar descarga desde cada mirror
-        foreach ($url in $mirrors) {
-            try {
-                Write-Output "Intentando descargar desde: $url"
-                curl -L $url --output boost.7z --progress-bar --retry 3
-                if (Test-Path boost.7z) {
-                    7z t boost.7z && 7z x boost.7z -oC:\boost -y && del boost.7z
-                    Write-Output "¡Boost instalado correctamente!"
-                    exit 0
-                }
-            } catch {
-                Write-Output "Falló mirror: $url"
-            }
+        # Verificar tamaño del archivo (debe ser >50MB)
+        if ((Get-Item $output).Length -lt 50MB) {
+            throw "Archivo Boost descargado es demasiado pequeño (posible descarga corrupta)"
         }
-        throw "Todos los mirrors fallaron"
         
-    - name: Configure and Build
+        # Extraer a ubicación específica
+        7z x $output -oC:\boost -y
+        if (-not (Test-Path "C:\boost\boost_1_83_0")) {
+            throw "Extracción de Boost falló"
+        }
+        
+        # Configurar estructura de carpetas esperada
+        Move-Item -Path "C:\boost\boost_1_83_0\lib64-msvc-14.2" -Destination "C:\boost\lib"
+        Move-Item -Path "C:\boost\boost_1_83_0\include\boost-1_83" -Destination "C:\boost\include"
+        Remove-Item -Recurse -Force "C:\boost\boost_1_83_0"
+
+    - name: Configure CMake
       run: |
+        # Configurar variables de entorno necesarias
+        $env:BOOST_ROOT = "C:\boost"
+        $env:BOOST_INCLUDEDIR = "C:\boost\include"
+        $env:BOOST_LIBRARYDIR = "C:\boost\lib"
+        
+        # Configuración CMake con políticas actualizadas
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
-          -DBOOST_ROOT="C:\boost" `
-          -DBoost_LIBRARY_DIR="C:\boost\lib64-msvc-14.2" &&
-        cmake --build build --parallel 4
+          -DBOOST_ROOT="$env:BOOST_ROOT" `
+          -DBoost_INCLUDE_DIR="$env:BOOST_INCLUDEDIR" `
+          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
+          -DBoost_NO_SYSTEM_PATHS=ON `
+          -DBoost_USE_STATIC_LIBS=ON `
+          --no-warn-unused-cli
+
+    - name: Build AzerothCore
+      run: cmake --build build --parallel 4
