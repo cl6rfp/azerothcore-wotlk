@@ -13,9 +13,23 @@ jobs:
       with:
         submodules: true
 
+    - name: Install Visual Studio Build Tools
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
     - name: Install dependencias
       run: |
-        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y
+        # Instalar Chocolatey si no está instalado
+        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        
+        # Instalar dependencias
+        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y --no-progress --force
+        
+        # Configurar variables de entorno para Visual Studio
+        $env:VCToolsVersion = "14.0"
+        $env:VCToolsInstallDir = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.0"
+        
         # Detectar ruta de Boost instalada por Chocolatey
         $boostDir = Get-ChildItem "C:\local\boost_*" | Select-Object -First 1 -ExpandProperty FullName
         if (-not $boostDir) { throw "No se encontró la instalación de Boost" }
@@ -25,13 +39,17 @@ jobs:
         $env:BOOST_LIBRARYDIR = "$boostDir\lib64-msvc-14.3"
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
         echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
+        echo "VCToolsVersion=14.0" >> $env:GITHUB_ENV
+        echo "VCToolsInstallDir=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.0" >> $env:GITHUB_ENV
         
-        # Verificar que CMake puede encontrar Boost
-        cmake --find-package -DNAME=Boost -DCOMPILER_ID=MSVC -DLANGUAGE=CXX -DMODE=COMPILE
+        # Verificar instalaciones
+        cmake --version
+        cl.exe
+        where boost
 
     - name: Configurando CMake
       run: |
-        # Actualizar políticas de CMake para evitar warnings
+        # Configuración específica para MSVC
         cmake -S . -B build -G "Ninja" `
           -DCMAKE_POLICY_DEFAULT_CMP0144=NEW `
           -DCMAKE_POLICY_DEFAULT_CMP0167=NEW `
@@ -46,12 +64,15 @@ jobs:
           -DBoost_ARCHITECTURE="-x64" `
           -DCMAKE_INSTALL_PREFIX=./install `
           -DTOOLS=1 `
-          -DWITH_WARNINGS=1
+          -DWITH_WARNINGS=1 `
+          -DCMAKE_C_COMPILER=cl.exe `
+          -DCMAKE_CXX_COMPILER=cl.exe `
+          --no-warn-unused-cli
 
     - name: Verificar configuración CMake
       run: |
         cd build
-        cmake --build . --target help
+        cmake --build . --target help | Out-Null
 
     - name: Build AzerothCore
-      run: cmake --build build --parallel 4
+      run: cmake --build build --parallel 4 --no-print-directory
