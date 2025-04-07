@@ -13,30 +13,16 @@ jobs:
       with:
         submodules: true
 
-    - name: Install basic dependencies
+    - name: Install EVERYTHING in one line
       run: |
-        choco install cmake git ninja python mariadb vcredist140 -y
+        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y --version=1.83.0 &&
+        $env:BOOST_ROOT = "C:\local\boost_1_83_0"
 
-    - name: Setup Boost with vcpkg (Instalación nativa)
-      run: |
-        # 1. Instalar vcpkg
-        git clone https://github.com/Microsoft/vcpkg.git
-        .\vcpkg\bootstrap-vcpkg.bat
-        
-        # 2. Instalar Boost específico para VS2022 (msvc-14.3)
-        .\vcpkg\vcpkg install boost:x64-windows@1.83.0
-        
-        # 3. Configurar integración con CMake
-        $env:CMAKE_TOOLCHAIN_FILE = "$pwd\vcpkg\scripts\buildsystems\vcpkg.cmake"
-        echo "VCPKG_ROOT=$pwd\vcpkg" >> $env:GITHUB_ENV
-
-    - name: Configure CMake
+    - name: Configure & Build
       run: |
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_TOOLCHAIN_FILE="$env:CMAKE_TOOLCHAIN_FILE" `
-          -DVCPKG_TARGET_TRIPLET=x64-windows
-
-    - name: Build AzerothCore
-      run: cmake --build build --parallel 4
+          -DBOOST_ROOT="C:\local\boost_1_83_0" `
+          -DBoost_NO_SYSTEM_PATHS=ON &&
+        cmake --build build --parallel 4
