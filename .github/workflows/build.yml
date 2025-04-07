@@ -15,29 +15,33 @@ jobs:
 
     - name: Install dependencies
       run: |
-        choco install cmake -y --installargs 'ADD_CMAKE_TO_PATH=System'
+        choco install cmake -y
         choco install git -y
         choco install ninja -y
         choco install python -y
         choco install mariadb -y
         choco install vcredist140 -y
-        choco install boost-msvc-14.3 -y --version=1.83.0
+
+    - name: Download and extract Boost 1.83.0
+      run: |
+        # Descargar Boost desde el sitio oficial
+        Invoke-WebRequest -Uri "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.7z" -OutFile "boost_1_83_0.7z"
+        7z x boost_1_83_0.7z -oC:\boost
+        rm boost_1_83_0.7z
 
     - name: Create Build Directory
       run: mkdir build
 
     - name: Configure CMake
       run: |
-        # Definir las rutas de Boost
-        $env:BOOST_ROOT = "C:\local\boost_1_83_0"
-        $env:BOOST_LIBRARYDIR = "C:\local\boost_1_83_0\lib64-msvc-14.3"
+        # Definir rutas de Boost
+        $env:BOOST_ROOT = "C:\boost\boost_1_83_0"
+        $env:BOOST_LIBRARYDIR = "C:\boost\boost_1_83_0\stage\lib"  # Si se compila Boost, sino omitir
         
-        # Configurar CMake
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=MinSizeRel `
           -DBOOST_ROOT="$env:BOOST_ROOT" `
-          -DBOOST_LIBRARYDIR="$env:BOOST_LIBRARYDIR" `
           -DBoost_NO_SYSTEM_PATHS=ON
 
     - name: Build AzerothCore
