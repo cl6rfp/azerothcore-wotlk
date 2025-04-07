@@ -23,8 +23,18 @@ jobs:
         # Instalar Chocolatey si no está instalado
         Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
         
-        # Instalar dependencias
-        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y --no-progress --force
+        # Instalar dependencias con progreso en una línea
+        $packages = @("cmake", "git", "ninja", "python", "mariadb", "vcredist140")
+        foreach ($package in $packages) {
+            Write-Host "Instalando $package..." -NoNewline
+            choco install $package -y --no-progress | Out-Host
+            Write-Host " ✓"
+        }
+
+        # Instalar Boost específicamente
+        Write-Host "Instalando Boost..." -NoNewline
+        choco install boost-msvc-14.3 -y --no-progress --force | Out-Host
+        Write-Host " ✓"
         
         # Configurar variables de entorno para Visual Studio
         $env:VCToolsVersion = "14.0"
@@ -37,19 +47,24 @@ jobs:
         # Asegurarse de que las variables de entorno estén correctamente configuradas
         $env:BOOST_ROOT = $boostDir
         $env:BOOST_LIBRARYDIR = "$boostDir\lib64-msvc-14.3"
+        $env:CMAKE_PREFIX_PATH = "$boostDir;$env:CMAKE_PREFIX_PATH"
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
         echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
+        echo "CMAKE_PREFIX_PATH=$boostDir;$env:CMAKE_PREFIX_PATH" >> $env:GITHUB_ENV
         echo "VCToolsVersion=14.0" >> $env:GITHUB_ENV
         echo "VCToolsInstallDir=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.0" >> $env:GITHUB_ENV
         
         # Verificar instalaciones
-        cmake --version
-        cl.exe
-        where boost
+        Write-Host "Verificando instalaciones..." -NoNewline
+        cmake --version | Out-Host
+        cl.exe | Out-Host
+        Write-Host "Boost instalado en: $boostDir" | Out-Host
+        Write-Host " ✓"
 
     - name: Configurando CMake
       run: |
         # Configuración específica para MSVC
+        Write-Host "Configurando CMake..." -NoNewline
         cmake -S . -B build -G "Ninja" `
           -DCMAKE_POLICY_DEFAULT_CMP0144=NEW `
           -DCMAKE_POLICY_DEFAULT_CMP0167=NEW `
@@ -67,12 +82,19 @@ jobs:
           -DWITH_WARNINGS=1 `
           -DCMAKE_C_COMPILER=cl.exe `
           -DCMAKE_CXX_COMPILER=cl.exe `
-          --no-warn-unused-cli
+          -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH" `
+          --no-warn-unused-cli | Out-Host
+        Write-Host " ✓"
 
     - name: Verificar configuración CMake
       run: |
+        Write-Host "Verificando configuración..." -NoNewline
         cd build
-        cmake --build . --target help | Out-Null
+        cmake --build . --target help | Out-Host
+        Write-Host " ✓"
 
     - name: Build AzerothCore
-      run: cmake --build build --parallel 4 --no-print-directory
+      run: |
+        Write-Host "Compilando AzerothCore..." -NoNewline
+        cmake --build build --parallel 4 | Out-Host
+        Write-Host " ✓"
