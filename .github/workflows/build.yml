@@ -25,19 +25,23 @@ jobs:
 
     - name: Download and build Boost 1.87.0
       run: |
-        # Descargar fuente de Boost 1.87.0 (formato .tar.gz)
+        # Descargar fuente de Boost
         Invoke-WebRequest -Uri "https://github.com/boostorg/boost/archive/refs/tags/boost-1.87.0.tar.gz" -OutFile "boost-1.87.0.tar.gz"
         
-        # Extraer archivo (2 pasos: .tar.gz -> .tar -> carpeta)
+        # Extraer archivo
         7z x boost-1.87.0.tar.gz -oC:\boost
         7z x C:\boost\boost-1.87.0.tar -oC:\boost
         Rename-Item -Path "C:\boost\boost-boost-1.87.0" -NewName "C:\boost\boost-1.87.0"
-        Remove-Item -Path "C:\boost\boost-1.87.0.tar"
+        Remove-Item -Path "C:\boost\boost-1.87.0.tar" -Force
 
-        # Compilar solo los módulos necesarios
+        # Compilar Boost
         cd C:\boost\boost-1.87.0
         .\bootstrap.bat
-        .\b2 --prefix=C:\boost\boost-1.87.0\stage --with-filesystem --with-system install
+        if (!(Test-Path ".\b2.exe")) {
+            Write-Error "b2.exe no se generó correctamente"
+            Exit 1
+        }
+        .\b2.exe --prefix=C:\boost\boost-1.87.0\stage --with-filesystem --with-system install
 
     - name: Create Build Directory
       run: mkdir build
