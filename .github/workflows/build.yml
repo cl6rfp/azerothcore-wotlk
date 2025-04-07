@@ -31,26 +31,47 @@ jobs:
             Write-Host " ✓"
         }
 
-        # Instalar Boost específicamente
+        # Instalar Boost manualmente
         Write-Host "Instalando Boost..." -NoNewline
-        choco install boost-msvc-14.3 -y --no-progress --force | Out-Host
+        # Crear directorio para Boost
+        $boostDir = "C:\local\boost_1_78_0"
+        New-Item -ItemType Directory -Force -Path $boostDir | Out-Null
+        
+        # Descargar Boost
+        $boostUrl = "https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.zip"
+        $boostZip = "$env:TEMP\boost_1_78_0.zip"
+        Invoke-WebRequest -Uri $boostUrl -OutFile $boostZip
+        
+        # Extraer Boost
+        Expand-Archive -Path $boostZip -DestinationPath "C:\local" -Force
+        
+        # Compilar Boost
+        cd $boostDir
+        .\bootstrap.bat
+        
+        # Configurar y compilar Boost
+        .\b2.exe toolset=msvc-14.0 address-model=64 architecture=x86 link=static runtime-link=static threading=multi --build-type=complete --prefix=$boostDir install
+        
+        # Verificar que los archivos de configuración existen
+        if (-not (Test-Path "$boostDir\lib\cmake\Boost-1.78.0\BoostConfig.cmake")) {
+            throw "Los archivos de configuración de Boost no se generaron correctamente"
+        }
+        
         Write-Host " ✓"
         
         # Configurar variables de entorno para Visual Studio
         $env:VCToolsVersion = "14.0"
         $env:VCToolsInstallDir = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.0"
         
-        # Detectar ruta de Boost instalada por Chocolatey
-        $boostDir = Get-ChildItem "C:\local\boost_*" | Select-Object -First 1 -ExpandProperty FullName
-        if (-not $boostDir) { throw "No se encontró la instalación de Boost" }
-        
         # Asegurarse de que las variables de entorno estén correctamente configuradas
         $env:BOOST_ROOT = $boostDir
-        $env:BOOST_LIBRARYDIR = "$boostDir\lib64-msvc-14.3"
+        $env:BOOST_LIBRARYDIR = "$boostDir\lib"
         $env:CMAKE_PREFIX_PATH = "$boostDir;$env:CMAKE_PREFIX_PATH"
+        $env:BOOST_DIR = "$boostDir\lib\cmake\Boost-1.78.0"
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=$boostDir\lib" >> $env:GITHUB_ENV
         echo "CMAKE_PREFIX_PATH=$boostDir;$env:CMAKE_PREFIX_PATH" >> $env:GITHUB_ENV
+        echo "BOOST_DIR=$boostDir\lib\cmake\Boost-1.78.0" >> $env:GITHUB_ENV
         echo "VCToolsVersion=14.0" >> $env:GITHUB_ENV
         echo "VCToolsInstallDir=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.0" >> $env:GITHUB_ENV
         
@@ -59,6 +80,7 @@ jobs:
         cmake --version | Out-Host
         cl.exe | Out-Host
         Write-Host "Boost instalado en: $boostDir" | Out-Host
+        Write-Host "Archivos de configuración en: $env:BOOST_DIR" | Out-Host
         Write-Host " ✓"
 
     - name: Configurando CMake
@@ -83,6 +105,8 @@ jobs:
           -DCMAKE_C_COMPILER=cl.exe `
           -DCMAKE_CXX_COMPILER=cl.exe `
           -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH" `
+          -DBoost_DIR="$env:BOOST_DIR" `
+          -DBOOST_VERSION=1.78.0 `
           --no-warn-unused-cli | Out-Host
         Write-Host " ✓"
 
