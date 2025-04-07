@@ -8,37 +8,38 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout repo
+    - name: Checkout repository
       uses: actions/checkout@v3
       with:
         submodules: true
 
-    - name: Install dependencies (Chocolatey + Boost)
+    - name: Install dependencies
       run: |
-        # Instalar todo con Chocolatey (incluyendo Boost)
-        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y --force
+        # 1. Instalar dependencias básicas
+        choco install cmake git ninja python mariadb vcredist140 -y
         
-        # Configurar variables de entorno para CMake
-        $boostVersion = (Get-ChildItem "C:\local\boost_*" | Select-Object -First 1).Name.Split('_')[-1]
-        $boostRoot = "C:\local\boost_$boostVersion"
-        
-        echo "BOOST_ROOT=$boostRoot" >> $env:GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=$boostRoot\lib64-msvc-14.3" >> $env:GITHUB_ENV
-        echo "BOOST_INCLUDEDIR=$boostRoot\include\boost-$($boostVersion.Replace('_', '.'))" >> $env:GITHUB_ENV
+        # 2. Descargar Boost precompilado CON soporte para CMake
+        $url = "https://boostorg.jfrog.io/artifactory/main/release/1.83.0/binaries/boost_1_83_0-msvc-14.2-64.7z"
+        curl -L $url -o boost.7z --progress-bar
+        7z x boost.7z -oC:\boost -y
+        rm boost.7z
 
-    - name: Configure CMake (con detección manual)
+        # 3. Configurar variables de entorno
+        $boostDir = "C:\boost\boost_1_83_0"
+        echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
+        echo "Boost_DIR=$boostDir" >> $env:GITHUB_ENV
+        echo "CMAKE_PREFIX_PATH=$boostDir" >> $env:GITHUB_ENV
+
+    - name: Configure CMake
       run: |
-        # Forzar la detección manual de Boost
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
           -DBOOST_ROOT="$env:BOOST_ROOT" `
-          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
-          -DBoost_INCLUDE_DIR="$env:BOOST_INCLUDEDIR" `
+          -DBoost_DIR="$env:Boost_DIR" `
+          -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH" `
           -DBoost_NO_SYSTEM_PATHS=ON `
-          -DBoost_USE_STATIC_LIBS=ON `
-          -DCMAKE_POLICY_DEFAULT_CMP0144=NEW `
-          -DCMAKE_POLICY_DEFAULT_CMP0167=NEW
+          -DBoost_USE_STATIC_LIBS=ON
 
     - name: Build AzerothCore
       run: cmake --build build --parallel 4
