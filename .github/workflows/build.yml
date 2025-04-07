@@ -13,15 +13,13 @@ jobs:
       with:
         submodules: true
 
-    - name: Install all dependencies (Boost incluido)
-      run: |
-        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y
-        echo "BOOST_ROOT=C:\local\boost_$((Get-ChildItem C:\local\boost_* | Select-Object -First 1).Name.Split('_')[-1]" >> $env:GITHUB_ENV
+    - name: Install all dependencies (1 línea simple)
+      run: choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y
 
     - name: Configure & Build
       run: |
         cmake -S . -B build -G "Ninja" `
           -DWITH_ELUNA=ON `
           -DCMAKE_BUILD_TYPE=Release `
-          -DBOOST_ROOT="$env:BOOST_ROOT" &&
+          -DBOOST_ROOT="C:\local\boost_1_83_0" &&
         cmake --build build --parallel 4
