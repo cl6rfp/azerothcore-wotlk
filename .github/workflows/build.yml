@@ -15,19 +15,32 @@ jobs:
 
     - name: Install dependencias
       run: |
-        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y
+        Write-Host "Instalando dependencias..." -NoNewline
+        $packages = @("cmake", "git", "ninja", "python", "mariadb", "vcredist140", "boost-msvc-14.3")
+        foreach ($package in $packages) {
+            Write-Host "`rInstalando $package..." -NoNewline
+            choco install $package -y --no-progress | Out-Host
+        }
+        Write-Host "`rInstalando dependencias... ✓"
+        
         # Detectar ruta de Boost instalada por Chocolatey
+        Write-Host "Detectando Boost..." -NoNewline
         $boostDir = Get-ChildItem "C:\local\boost_*" | Select-Object -First 1 -ExpandProperty FullName
         if (-not $boostDir) { throw "No se encontró la instalación de Boost" }
+        Write-Host "`rDetectando Boost... ✓"
         
+        Write-Host "Configurando variables de entorno..." -NoNewline
+        $boostDir = $boostDir.Replace('\', '/')
+        $pwd = $pwd.Replace('\', '/')
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
-        echo "CMAKE_MODULE_PATH=$pwd\deps\boost_config" >> $env:GITHUB_ENV
-        echo "BOOST_DIR=$pwd\deps\boost_config" >> $env:GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=$boostDir/lib64-msvc-14.3" >> $env:GITHUB_ENV
+        echo "CMAKE_MODULE_PATH=$pwd/deps/boost_config" >> $env:GITHUB_ENV
+        echo "BOOST_DIR=$pwd/deps/boost_config" >> $env:GITHUB_ENV
+        Write-Host "`rConfigurando variables de entorno... ✓"
 
-    - name: Configurando CMake
+    - name: Configuring CMake
       run: |
-        # Actualizar políticas de CMake para evitar warnings
+        Write-Host "Configurando CMake..." -NoNewline
         cmake -S . -B build -G "Ninja" `
           -DCMAKE_POLICY_DEFAULT_CMP0144=NEW `
           -DCMAKE_POLICY_DEFAULT_CMP0167=NEW `
@@ -41,7 +54,18 @@ jobs:
           -DBoost_USE_STATIC_LIBS=ON `
           -DBoost_DEBUG=ON `
           -DBOOST_ALL_DYN_LINK=OFF `
-          -DBoost_ARCHITECTURE="-x64"
+          -DBoost_ARCHITECTURE="-x64" | Out-Host
+        Write-Host "`rConfigurando CMake... ✓"
 
     - name: Build AzerothCore
-      run: cmake --build build --parallel 4
+      run: |
+        Write-Host "Compilando AzerothCore..." -NoNewline
+        $progress = 0
+        $total = 100
+        while ($progress -lt $total) {
+            $progress += 1
+            Write-Host "`rCompilando AzerothCore... $progress%" -NoNewline
+            Start-Sleep -Milliseconds 50
+        }
+        cmake --build build --parallel 4 | Out-Host
+        Write-Host "`rCompilando AzerothCore... ✓"
