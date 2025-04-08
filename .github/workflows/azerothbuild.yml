@@ -18,27 +18,21 @@ jobs:
       run: |
         choco install cmake git ninja python mariadb vcredist140 -y --ignore-checksums --ignore-package-exit-codes
         
-        # Instalar Boost 1.78.0 específicamente
         set boostDir=C:\local\boost_1_78_0
         if not exist "%boostDir%" mkdir "%boostDir%"
         
-        # Descargar Boost 1.78.0
-        powershell -Command "Invoke-WebRequest -Uri 'https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.zip' -OutFile '%TEMP%\boost_1_78_0.zip'"
+        curl -L -o "%TEMP%\boost_1_78_0.zip" https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.zip
         
-        # Extraer Boost
         powershell -Command "Expand-Archive -Path '%TEMP%\boost_1_78_0.zip' -DestinationPath 'C:\local' -Force"
         
-        # Compilar Boost
         cd "%boostDir%"
         call bootstrap.bat
         call b2.exe toolset=msvc-14.0 address-model=64 architecture=x86 link=static runtime-link=static threading=multi --build-type=complete --with-system --with-filesystem --with-program_options --with-iostreams --with-regex --prefix=%boostDir% install
         
-        # Copiar archivos de configuración
         set configDir=%boostDir%\lib\cmake\Boost-1.78.0
         if not exist "%configDir%" mkdir "%configDir%"
         xcopy /E /I /Y "%CD%\deps\boost_config\*" "%configDir%"
         
-        # Crear archivo de versión
         echo #define BOOST_VERSION 107800 > "%configDir%\boost-version.hpp"
         echo #define BOOST_LIB_VERSION "1_78" >> "%configDir%\boost-version.hpp"
         
@@ -48,22 +42,23 @@ jobs:
         echo BOOST_VERSION=1.78.0>>%GITHUB_ENV%
 
     - name: Configurando CMake
+      shell: cmd
       run: |
-        # Actualizar políticas de CMake para evitar warnings
-        cmake -S . -B build -G "Ninja" `
-          -DCMAKE_POLICY_DEFAULT_CMP0144=NEW `
-          -DCMAKE_POLICY_DEFAULT_CMP0167=NEW `
-          -DWITH_ELUNA=ON `
-          -DCMAKE_BUILD_TYPE=Release `
-          -DBOOST_ROOT="$env:BOOST_ROOT" `
-          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
-          -DBoost_DIR="$env:BOOST_DIR" `
-          -DBOOST_VERSION="$env:BOOST_VERSION" `
-          -DBoost_NO_SYSTEM_PATHS=ON `
-          -DBoost_USE_STATIC_LIBS=ON `
-          -DBoost_DEBUG=ON `
-          -DBOOST_ALL_DYN_LINK=OFF `
+        cmake -S . -B build -G "Ninja" ^
+          -DCMAKE_POLICY_DEFAULT_CMP0144=NEW ^
+          -DCMAKE_POLICY_DEFAULT_CMP0167=NEW ^
+          -DWITH_ELUNA=ON ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DBOOST_ROOT="%BOOST_ROOT%" ^
+          -DBoost_LIBRARY_DIR="%BOOST_LIBRARYDIR%" ^
+          -DBoost_DIR="%BOOST_DIR%" ^
+          -DBOOST_VERSION="%BOOST_VERSION%" ^
+          -DBoost_NO_SYSTEM_PATHS=ON ^
+          -DBoost_USE_STATIC_LIBS=ON ^
+          -DBoost_DEBUG=ON ^
+          -DBOOST_ALL_DYN_LINK=OFF ^
           -DBoost_ARCHITECTURE="-x64"
 
     - name: Build AzerothCore
+      shell: cmd
       run: cmake --build build --parallel 4
