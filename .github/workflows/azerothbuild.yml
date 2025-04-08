@@ -14,34 +14,33 @@ jobs:
         submodules: true
 
     - name: Install dependencias
+      shell: cmd
       run: |
         choco install cmake git ninja python mariadb vcredist140 -y --ignore-checksums --ignore-package-exit-codes
         
         # Instalar Boost 1.78.0 específicamente
-        $boostDir = "C:\local\boost_1_78_0"
-        New-Item -ItemType Directory -Force -Path $boostDir | Out-Null
+        set boostDir=C:\local\boost_1_78_0
+        if not exist "%boostDir%" mkdir "%boostDir%"
         
         # Descargar Boost 1.78.0
-        $boostUrl = "https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.zip"
-        $boostZip = "$env:TEMP\boost_1_78_0.zip"
-        Invoke-WebRequest -Uri $boostUrl -OutFile $boostZip
+        powershell -Command "Invoke-WebRequest -Uri 'https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.zip' -OutFile '%TEMP%\boost_1_78_0.zip'"
         
         # Extraer Boost
-        Expand-Archive -Path $boostZip -DestinationPath "C:\local" -Force
+        powershell -Command "Expand-Archive -Path '%TEMP%\boost_1_78_0.zip' -DestinationPath 'C:\local' -Force"
         
         # Compilar Boost
-        cd $boostDir
-        .\bootstrap.bat
-        .\b2.exe toolset=msvc-14.0 address-model=64 architecture=x86 link=static runtime-link=static threading=multi --build-type=complete --with-system --with-filesystem --with-program_options --with-iostreams --with-regex --prefix=$boostDir install
+        cd "%boostDir%"
+        call bootstrap.bat
+        call b2.exe toolset=msvc-14.0 address-model=64 architecture=x86 link=static runtime-link=static threading=multi --build-type=complete --with-system --with-filesystem --with-program_options --with-iostreams --with-regex --prefix=%boostDir% install
         
         # Copiar archivos de configuración
-        $configDir = "$boostDir\lib\cmake\Boost-1.78.0"
-        New-Item -ItemType Directory -Force -Path $configDir | Out-Null
-        Copy-Item "$pwd\deps\boost_config\*" -Destination $configDir -Force
+        set configDir=%boostDir%\lib\cmake\Boost-1.78.0
+        if not exist "%configDir%" mkdir "%configDir%"
+        xcopy /E /I /Y "%CD%\deps\boost_config\*" "%configDir%"
         
-        echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=$boostDir\lib" >> $env:GITHUB_ENV
-        echo "BOOST_DIR=$boostDir\lib\cmake\Boost-1.78.0" >> $env:GITHUB_ENV
+        echo BOOST_ROOT=%boostDir%>>%GITHUB_ENV%
+        echo BOOST_LIBRARYDIR=%boostDir%\lib>>%GITHUB_ENV%
+        echo BOOST_DIR=%boostDir%\lib\cmake\Boost-1.78.0>>%GITHUB_ENV%
 
     - name: Configurando CMake
       run: |
