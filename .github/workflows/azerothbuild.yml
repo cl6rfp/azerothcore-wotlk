@@ -1,0 +1,43 @@
+name: Build AzerothCore for Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Install dependencias
+      run: |
+        choco install cmake git ninja python mariadb vcredist140 boost-msvc-14.3 -y
+        # Detectar ruta de Boost instalada por Chocolatey
+        $boostDir = Get-ChildItem "C:\local\boost_*" | Select-Object -First 1 -ExpandProperty FullName
+        if (-not $boostDir) { throw "No se encontró la instalación de Boost" }
+        
+        echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
+
+    - name: Configurando CMake
+      run: |
+        # Actualizar políticas de CMake para evitar warnings
+        cmake -S . -B build -G "Ninja" `
+          -DCMAKE_POLICY_DEFAULT_CMP0144=NEW `
+          -DCMAKE_POLICY_DEFAULT_CMP0167=NEW `
+          -DWITH_ELUNA=ON `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DBOOST_ROOT="$env:BOOST_ROOT" `
+          -DBoost_LIBRARY_DIR="$env:BOOST_LIBRARYDIR" `
+          -DBoost_NO_SYSTEM_PATHS=ON `
+          -DBoost_USE_STATIC_LIBS=ON `
+          -DBoost_DEBUG=ON `
+          -DBOOST_ALL_DYN_LINK=OFF `
+          -DBoost_ARCHITECTURE="-x64"
+
+    - name: Build AzerothCore
+      run: cmake --build build --parallel 4
