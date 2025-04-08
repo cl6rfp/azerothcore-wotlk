@@ -31,11 +31,11 @@ jobs:
         
         Write-Host "Configurando variables de entorno..." -NoNewline
         $boostDir = $boostDir.Replace('\', '/')
-        $pwd = $pwd.Replace('\', '/')
+        $currentPath = $pwd.Path.Replace('\', '/')
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
         echo "BOOST_LIBRARYDIR=$boostDir/lib64-msvc-14.3" >> $env:GITHUB_ENV
-        echo "CMAKE_MODULE_PATH=$pwd/deps/boost_config" >> $env:GITHUB_ENV
-        echo "BOOST_DIR=$pwd/deps/boost_config" >> $env:GITHUB_ENV
+        echo "CMAKE_MODULE_PATH=$currentPath/deps/boost_config" >> $env:GITHUB_ENV
+        echo "BOOST_DIR=$currentPath/deps/boost_config" >> $env:GITHUB_ENV
         Write-Host "`rConfigurando variables de entorno... ✓"
 
     - name: Configuring CMake
