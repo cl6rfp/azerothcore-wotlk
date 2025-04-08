@@ -41,14 +41,30 @@ jobs:
         
         # Instalar Boost 1.78.0 específicamente
         Write-Host "Instalando Boost 1.78.0..." -NoNewline
-        choco install boost-msvc-14.3 --version=1.78.0 -y --no-progress | Out-Host
+        $boostDir = "C:\local\boost_1_78_0"
+        New-Item -ItemType Directory -Force -Path $boostDir | Out-Null
+        
+        # Descargar Boost 1.78.0
+        $boostUrl = "https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.zip"
+        $boostZip = "$env:TEMP\boost_1_78_0.zip"
+        Invoke-WebRequest -Uri $boostUrl -OutFile $boostZip
+        
+        # Extraer Boost
+        Expand-Archive -Path $boostZip -DestinationPath "C:\local" -Force
+        
+        # Compilar Boost
+        cd $boostDir
+        .\bootstrap.bat
+        .\b2.exe toolset=msvc-14.0 address-model=64 architecture=x86 link=static runtime-link=static threading=multi --build-type=complete --with-system --with-filesystem --with-program_options --with-iostreams --with-regex --prefix=$boostDir install
+        
+        Write-Host "`rInstalando Boost 1.78.0... 100% ✓"
         
         # Configurar variables de entorno
         Write-Host "Configurando variables de entorno..." -NoNewline
-        $boostDir = "C:\local\boost_1_78_0"
+        $boostDir = $boostDir.Replace('\', '/')
         $currentPath = $pwd.Path.Replace('\', '/')
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=$boostDir/lib" >> $env:GITHUB_ENV
         echo "CMAKE_MODULE_PATH=$currentPath/deps/boost_config" >> $env:GITHUB_ENV
         echo "BOOST_DIR=$currentPath/deps/boost_config" >> $env:GITHUB_ENV
         Write-Host "`rConfigurando variables de entorno... ✓"
