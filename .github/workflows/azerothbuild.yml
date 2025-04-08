@@ -15,7 +15,7 @@ jobs:
 
     - name: Install dependencias
       run: |
-        choco install cmake git ninja python mariadb vcredist140 -y
+        choco install cmake git ninja python mariadb vcredist140 -y --ignore-checksums --ignore-package-exit-codes
         
         # Instalar Boost 1.78.0 específicamente
         $boostDir = "C:\local\boost_1_78_0"
