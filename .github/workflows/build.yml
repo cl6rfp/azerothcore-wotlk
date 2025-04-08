@@ -13,27 +13,42 @@ jobs:
       with:
         submodules: true
 
+    - name: Show checkout progress
+      run: |
+        Write-Host "Obteniendo repositorio..." -NoNewline
+        $progress = 0
+        $total = 100
+        while ($progress -lt $total) {
+            $progress += 1
+            Write-Host "`rObteniendo repositorio... $progress%" -NoNewline
+            Start-Sleep -Milliseconds 20
+        }
+        Write-Host "`rObteniendo repositorio... 100% ✓"
+
     - name: Install dependencias
       run: |
         Write-Host "Instalando dependencias..." -NoNewline
-        $packages = @("cmake", "git", "ninja", "python", "mariadb", "vcredist140", "boost-msvc-14.3")
+        $packages = @("cmake", "git", "ninja", "python", "mariadb", "vcredist140")
+        $totalPackages = $packages.Count
+        $currentPackage = 0
         foreach ($package in $packages) {
-            Write-Host "`rInstalando $package..." -NoNewline
+            $currentPackage++
+            $percentage = [math]::Round(($currentPackage / $totalPackages) * 100)
+            Write-Host "`rInstalando dependencias... $percentage%" -NoNewline
             choco install $package -y --no-progress | Out-Host
         }
-        Write-Host "`rInstalando dependencias... ✓"
+        Write-Host "`rInstalando dependencias... 100% ✓"
         
-        # Detectar ruta de Boost instalada por Chocolatey
-        Write-Host "Detectando Boost..." -NoNewline
-        $boostDir = Get-ChildItem "C:\local\boost_*" | Select-Object -First 1 -ExpandProperty FullName
-        if (-not $boostDir) { throw "No se encontró la instalación de Boost" }
-        Write-Host "`rDetectando Boost... ✓"
+        # Instalar Boost 1.78.0 específicamente
+        Write-Host "Instalando Boost 1.78.0..." -NoNewline
+        choco install boost-msvc-14.3 --version=1.78.0 -y --no-progress | Out-Host
         
+        # Configurar variables de entorno
         Write-Host "Configurando variables de entorno..." -NoNewline
-        $boostDir = $boostDir.Replace('\', '/')
+        $boostDir = "C:\local\boost_1_78_0"
         $currentPath = $pwd.Path.Replace('\', '/')
         echo "BOOST_ROOT=$boostDir" >> $env:GITHUB_ENV
-        echo "BOOST_LIBRARYDIR=$boostDir/lib64-msvc-14.3" >> $env:GITHUB_ENV
+        echo "BOOST_LIBRARYDIR=$boostDir\lib64-msvc-14.3" >> $env:GITHUB_ENV
         echo "CMAKE_MODULE_PATH=$currentPath/deps/boost_config" >> $env:GITHUB_ENV
         echo "BOOST_DIR=$currentPath/deps/boost_config" >> $env:GITHUB_ENV
         Write-Host "`rConfigurando variables de entorno... ✓"
@@ -41,6 +56,13 @@ jobs:
     - name: Configuring CMake
       run: |
         Write-Host "Configurando CMake..." -NoNewline
+        $progress = 0
+        $total = 100
+        while ($progress -lt $total) {
+            $progress += 1
+            Write-Host "`rConfigurando CMake... $progress%" -NoNewline
+            Start-Sleep -Milliseconds 20
+        }
         cmake -S . -B build -G "Ninja" `
           -DCMAKE_POLICY_DEFAULT_CMP0144=NEW `
           -DCMAKE_POLICY_DEFAULT_CMP0167=NEW `
@@ -55,7 +77,7 @@ jobs:
           -DBoost_DEBUG=ON `
           -DBOOST_ALL_DYN_LINK=OFF `
           -DBoost_ARCHITECTURE="-x64" | Out-Host
-        Write-Host "`rConfigurando CMake... ✓"
+        Write-Host "`rConfigurando CMake... 100% ✓"
 
     - name: Build AzerothCore
       run: |
@@ -68,4 +90,4 @@ jobs:
             Start-Sleep -Milliseconds 50
         }
         cmake --build build --parallel 4 | Out-Host
-        Write-Host "`rCompilando AzerothCore... ✓"
+        Write-Host "`rCompilando AzerothCore... 100% ✓"
